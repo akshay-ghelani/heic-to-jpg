@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   
+    <title>HEIC to JPG Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.3/dist/heic2any.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .dropzone {
+            border: 2px dashed #cbd5e0;
+            transition: all 0.3s ease;
+        }
+        .dropzone.active {
+            border-color: #4f46e5;
+            background-color: #eef2ff;
+        }
+        .file-item {
+            transition: all 0.3s ease;
+        }
+        .file-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-indigo-700 mb-2">HEIC to JPG Converter</h1>
+            <p class="text-gray-600">Convert your HEIC/HEIF images to JPG format quickly and easily</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-8 transition-all duration-300 hover:shadow-xl">
+            <div class="p-6">
+                <div id="dropzone" class="dropzone rounded-lg p-8 text-center cursor-pointer">
+                    <div class="flex flex-col items-center justify-center">
+                        <i class="fas fa-cloud-upload-alt text-5xl text-indigo-500 mb-4"></i>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">Drag & Drop HEIC files here</h3>
+                        <p class="text-gray-500 mb-4">or click to browse your files</p>
+                        <input type="file" id="fileInput" class="hidden" accept=".heic,.heif" multiple>
+                        <button id="browseBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-300">
+                            Select Files
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="fileList" class="space-y-4 mb-8">
+            <!-- Files will be listed here -->
+        </div>
+
+        <div id="actionSection" class="hidden bg-white rounded-xl shadow-lg p-6 mb-8 fade-in">
+            <div class="flex flex-col sm:flex-row justify-between items-center">
+                <div class="mb-4 sm:mb-0">
+                    <h3 class="text-lg font-semibold text-gray-800">Ready to convert</h3>
+                    <p id="fileCount" class="text-gray-600">0 files selected</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button id="clearBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-300">
+                        <i class="fas fa-trash-alt mr-2"></i> Clear All
+                    </button>
+                    <button id="convertBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-300">
+                        <i class="fas fa-exchange-alt mr-2"></i> Convert All
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="conversionProgress" class="hidden bg-white rounded-xl shadow-lg p-6 mb-8 fade-in">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Conversion Progress</h3>
+            <div id="progressContainer" class="space-y-4">
+                <!-- Progress items will be added here -->
+            </div>
+        </div>
+
+        <div id="downloadSection" class="hidden bg-white rounded-xl shadow-lg p-6 mb-8 fade-in">
+            <div class="flex flex-col sm:flex-row justify-between items-center">
+                <div class="mb-4 sm:mb-0">
+                    <h3 class="text-lg font-semibold text-gray-800">Conversion Complete</h3>
+                    <p id="conversionCount" class="text-gray-600">0 files converted</p>
+                </div>
+                <button id="downloadAllBtn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-300">
+                    <i class="fas fa-download mr-2"></i> Download All
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">About HEIC to JPG Converter</h3>
+            <div class="text-gray-600 space-y-3">
+                <p>This tool helps you convert HEIC/HEIF images (commonly used by iPhones) to the more widely supported JPG format.</p>
+                <p><strong>Key Features:</strong></p>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li>100% client-side processing - your files never leave your computer</li>
+                    <li>Batch conversion - convert multiple files at once</li>
+                    <li>Fast processing with progress tracking</li>
+                    <li>No file size limits</li>
+                    <li>No registration or signup required</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('fileInput');
+            const browseBtn = document.getElementById('browseBtn');
+            const fileList = document.getElementById('fileList');
+            const actionSection = document.getElementById('actionSection');
+            const fileCount = document.getElementById('fileCount');
+            const clearBtn = document.getElementById('clearBtn');
+            const convertBtn = document.getElementById('convertBtn');
+            const conversionProgress = document.getElementById('conversionProgress');
+            const progressContainer = document.getElementById('progressContainer');
+            const downloadSection = document.getElementById('downloadSection');
+            const downloadAllBtn = document.getElementById('downloadAllBtn');
+            const conversionCount = document.getElementById('conversionCount');
+
+            // State
+            let files = [];
+            let convertedFiles = [];
+
+            // Event listeners
+            browseBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            clearBtn.addEventListener('click', clearFiles);
+            convertBtn.addEventListener('click', convertFiles);
+            downloadAllBtn.addEventListener('click', downloadAll);
+
+            // Drag and drop events
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight() {
+                dropzone.classList.add('active');
+            }
+
+            function unhighlight() {
+                dropzone.classList.remove('active');
+            }
+
+            dropzone.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const newFiles = [...dt.files].filter(file => 
+                    file.name.toLowerCase().endsWith('.heic') || 
+                    file.name.toLowerCase().endsWith('.heif')
+                );
+                
+                if (newFiles.length > 0) {
+                    addFiles(newFiles);
+                } else {
+                    showToast('Please select HEIC/HEIF files only', 'error');
+                }
+            }
+
+            function handleFileSelect(e) {
+                const newFiles = [...e.target.files].filter(file => 
+                    file.name.toLowerCase().endsWith('.heic') || 
+                    file.name.toLowerCase().endsWith('.heif')
+                );
+                
+                if (newFiles.length > 0) {
+                    addFiles(newFiles);
+                } else {
+                    showToast('Please select HEIC/HEIF files only', 'error');
+                }
+                fileInput.value = ''; // Reset input to allow selecting same file again
+            }
+
+            function addFiles(newFiles) {
+                files = [...files, ...newFiles];
+                renderFileList();
+                updateUI();
+            }
+
+            function renderFileList() {
+                fileList.innerHTML = '';
+                
+                if (files.length === 0) {
+                    fileList.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-images text-3xl mb-2"></i>
+                            <p>No files selected yet</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                files.forEach((file, index) => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item bg-white rounded-lg shadow-sm p-4 flex items-center justify-between border border-gray-100';
+                    fileItem.innerHTML = `
+                        <div class="flex items-center">
+                            <div class="bg-indigo-100 p-3 rounded-lg mr-4">
+                                <i class="fas fa-image text-indigo-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-800 truncate max-w-xs">${file.name}</h4>
+                                <p class="text-sm text-gray-500">${formatFileSize(file.size)}</p>
+                            </div>
+                        </div>
+                        <button class="remove-btn text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50" data-index="${index}">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    fileList.appendChild(fileItem);
+                });
+
+                // Add event listeners to remove buttons
+                document.querySelectorAll('.remove-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const index = parseInt(this.getAttribute('data-index'));
+                        removeFile(index);
+                    });
+                });
+            }
+
+            function removeFile(index) {
+                files.splice(index, 1);
+                renderFileList();
+                updateUI();
+            }
+
+            function clearFiles() {
+                files = [];
+                renderFileList();
+                updateUI();
+            }
+
+            function updateUI() {
+                if (files.length > 0) {
+                    actionSection.classList.remove('hidden');
+                    fileCount.textContent = `${files.length} file${files.length !== 1 ? 's' : ''} selected`;
+                } else {
+                    actionSection.classList.add('hidden');
+                }
+                
+                // Hide other sections when files change
+                conversionProgress.classList.add('hidden');
+                downloadSection.classList.add('hidden');
+                convertedFiles = [];
+            }
+
+            async function convertFiles() {
+                if (files.length === 0) return;
+                
+                // Show progress section
+                conversionProgress.classList.remove('hidden');
+                progressContainer.innerHTML = '';
+                
+                // Create progress items
+                files.forEach((file, index) => {
+                    const progressItem = document.createElement('div');
+                    progressItem.className = 'progress-item';
+                    progressItem.innerHTML = `
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-medium text-gray-700 truncate max-w-xs">${file.name}</span>
+                            <span class="status text-sm font-medium text-gray-500">Waiting</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="progress-bar bg-indigo-600 h-2.5 rounded-full" style="width: 0%" data-index="${index}"></div>
+                        </div>
+                    `;
+                    progressContainer.appendChild(progressItem);
+                });
+                
+                // Convert files one by one
+                for (let i = 0; i < files.length; i++) {
+                    await convertFile(files[i], i);
+                }
+                
+                // Show download section
+                downloadSection.classList.remove('hidden');
+                conversionCount.textContent = `${convertedFiles.length} file${convertedFiles.length !== 1 ? 's' : ''} converted`;
+            }
+
+            async function convertFile(file, index) {
+                return new Promise((resolve) => {
+                    // Update status to "Converting"
+                    updateProgress(index, 'Converting', 10);
+                    
+                    // Simulate some delay for better UX
+                    setTimeout(async () => {
+                        try {
+                            const blob = await heic2any({
+                                blob: file,
+                                toType: 'image/jpeg',
+                                quality: 0.8
+                            });
+                            
+                            // Update progress to 100% and "Completed"
+                            updateProgress(index, 'Completed', 100);
+                            
+                            // Add to converted files array
+                            const convertedFile = {
+                                name: file.name.replace(/\.[^/.]+$/, "") + '.jpg',
+                                blob: blob
+                            };
+                            convertedFiles.push(convertedFile);
+                            
+                            resolve();
+                        } catch (error) {
+                            console.error('Conversion error:', error);
+                            updateProgress(index, 'Failed', 0);
+                            showToast(`Failed to convert ${file.name}`, 'error');
+                            resolve();
+                        }
+                    }, 300);
+                });
+            }
+
+            function updateProgress(index, status, percent) {
+                const progressItems = document.querySelectorAll('.progress-item');
+                if (progressItems[index]) {
+                    const statusElement = progressItems[index].querySelector('.status');
+                    const progressBar = progressItems[index].querySelector('.progress-bar');
+                    
+                    if (statusElement) {
+                        statusElement.textContent = status;
+                        if (status === 'Completed') {
+                            statusElement.classList.add('text-green-600');
+                        } else if (status === 'Failed') {
+                            statusElement.classList.add('text-red-600');
+                        }
+                    }
+                    
+                    if (progressBar) {
+                        progressBar.style.width = `${percent}%`;
+                    }
+                }
+            }
+
+            function downloadAll() {
+                if (convertedFiles.length === 0) return;
+                
+                convertedFiles.forEach(file => {
+                    saveAs(file.blob, file.name);
+                });
+                
+                showToast('Download started!', 'success');
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            function showToast(message, type) {
+                const toast = document.createElement('div');
+                toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-medium flex items-center ${
+                    type === 'error' ? 'bg-red-500' : 'bg-green-500'
+                } fade-in`;
+                toast.innerHTML = `
+                    <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'} mr-2"></i>
+                    ${message}
+                `;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.classList.remove('fade-in');
+                    toast.classList.add('fade-out');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>
